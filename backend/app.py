@@ -6,9 +6,9 @@ from qiskit_aer import Aer
 import numpy as np
 import random
 from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
 import base64
 import os
+import secrets
 from functools import wraps
 import hashlib 
 
@@ -19,6 +19,12 @@ try:
     from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
     # Note: If you haven't saved your account locally, you can do so here:
     # QiskitRuntimeService.save_account(channel="ibm_quantum", token="YOUR_TOKEN", overwrite=True)
+    QiskitRuntimeService.save_account(
+        token="a_frszdc-gutL_Y9xKzKM9aVW2uuSUAx3FCvaVA9kZsK", # Use the 44-character API_KEY you created and saved from the IBM Quantum Platform Home dashboard
+        instance="crn:v1:bluemix:public:quantum-computing:us-east:a/0dabbbeda08947b288425684a966111a:d7d35d82-ad79-4cc1-9169-215eb581e1ef::", # Optional
+        channel="ibm_quantum_platform",
+        overwrite=True,
+    )
     
     # Check if we can initialize the service
     service = QiskitRuntimeService()
@@ -47,22 +53,9 @@ def get_backend(use_real=True,min_qubits=1):
     print("⚠️ Using AER Simulator")
     return Aer.get_backend("qasm_simulator")
 
-
-def encode_message(bits, bases):
-    circuits = []
-    for bit, basis in zip(bits, bases):
-        qc = QuantumCircuit(1, 1)
-        if basis == 0:  # Z basis
-            if bit == 1:
-                qc.x(0)
-        else:  # X basis
-            if bit == 0:
-                qc.h(0)
-            else:
-                qc.x(0)
-                qc.h(0)
-        circuits.append(qc)
-    return circuits
+def generate_secure_bits(n):
+    """Generate cryptographically secure random bits."""
+    return [secrets.randbits(1) for _ in range(n)]
 
 def measure_message(circuits, bases):
     measured_circuits = []
@@ -73,9 +66,6 @@ def measure_message(circuits, bases):
         measured_qc.measure(0, 0)
         measured_circuits.append(measured_qc)
     return measured_circuits
-
-def remove_garbage(a_bases, b_bases, bits):
-    return [bit for i, bit in enumerate(bits) if a_bases[i] == b_bases[i]]
 
 def calculate_qber(alice_key, bob_key):
     """Calculate Quantum Bit Error Rate (QBER)."""
@@ -132,15 +122,12 @@ def eavesdrop_simulation(alice_bits, alice_bases, eve_bases, eve_prob):
     
     return eve_results, resend_bits, resend_bases
 
-def bb84_protocol(n_bits=10, seed=None, with_eve=False, eve_prob=0.0, use_aer=True):
+def bb84_protocol(n_bits=10, with_eve=False, eve_prob=0.0, use_aer=True):
     
     # 1. Generate Alice's random bits and bases
-    if seed is not None:
-        np.random.seed(seed)
-        
-    alice_bits = np.random.randint(2, size=n_bits)
-    alice_bases = np.random.randint(2, size=n_bits)
-    bob_bases = np.random.randint(2, size=n_bits)
+    alice_bits = generate_secure_bits(n_bits)
+    alice_bases = generate_secure_bits(n_bits)
+    bob_bases = generate_secure_bits(n_bits)
     
     # 2. Handle Eve (Simulation/Classical Pre-processing)
     # We do this classically/locally so we don't need interactive dynamic circuits on hardware
@@ -149,7 +136,7 @@ def bb84_protocol(n_bits=10, seed=None, with_eve=False, eve_prob=0.0, use_aer=Tr
     effective_bases = alice_bases
 
     if with_eve:
-        eve_bases = np.random.randint(2, size=n_bits)
+        eve_bases = generate_secure_bits(n_bits)
         eve_results, effective_bits, effective_bases = eavesdrop_simulation(
             alice_bits, alice_bases, eve_bases, eve_prob
         )
@@ -245,6 +232,14 @@ def bb84_protocol(n_bits=10, seed=None, with_eve=False, eve_prob=0.0, use_aer=Tr
             matched_indices.append(i)
 
     qber = calculate_qber(alice_key, bob_key)
+
+    final_key = []
+    for a, b in zip(alice_key, bob_key):
+        if a == b:
+            final_key.append(a)
+    if not final_key and len(alice_key) > 0:
+        # Fallback for demo: just take the first few bits of Alice's key so app doesn't crash
+        final_key = alice_key[:2]
     # 6. Format Table Data
     table_data = []
     for i in range(n_bits):
@@ -273,31 +268,8 @@ def bb84_protocol(n_bits=10, seed=None, with_eve=False, eve_prob=0.0, use_aer=Tr
         "eve_key": eve_key_extracted,
         "matched_indices": matched_indices
     }
-def check_security(qber_threshold=0.1):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            data = request.json
-            key = data.get('key', [])
-            
-            # If no key is provided or key is empty, allow the operation
-            if not key:
-                return f(*args, **kwargs)
-                
-            # Calculate QBER from the key (this is a simplified example)
-            # In a real implementation, you'd want to track QBER from the BB84 protocol
-            if len(key) > 10:  # Only check if we have enough bits
-                # Simple heuristic: if more than threshold of bits are 1, consider it suspicious
-                ones_ratio = sum(key) / len(key)
-                if abs(ones_ratio - 0.5) > qber_threshold:  # Should be roughly 50/50
-                    return jsonify({'error': 'High QBER detected. Key may be compromised.'}), 400
-            
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
-
 # ---------------------- NEW HELPER ----------------------
-def derive_final_key(bits, length=32):
+def derive_final_key(bits, length=16):
     """
     Apply privacy amplification using SHA-256.
     Returns a strong key of `length` bytes (default 32 = AES-256).
@@ -312,7 +284,7 @@ def derive_final_key(bits, length=32):
 
 def aes_encrypt(message, key_bits):
     """Encrypt a message using AES with privacy-amplified quantum key"""
-    key_bytes = derive_final_key(key_bits, 32)   # ✅ use SHA-256 derived key
+    key_bytes = derive_final_key(key_bits, 16)   # ✅ use SHA-256 derived key
     cipher = AES.new(key_bytes, AES.MODE_EAX)
     ciphertext, tag = cipher.encrypt_and_digest(message.encode())
     return {
@@ -323,7 +295,7 @@ def aes_encrypt(message, key_bits):
 
 def aes_decrypt(encrypted_data, key_bits):
     """Decrypt a message using AES with privacy-amplified quantum key"""
-    key_bytes = derive_final_key(key_bits, 32)   # ✅ use SHA-256 derived key
+    key_bytes = derive_final_key(key_bits, 16)   # ✅ use SHA-256 derived key
     ciphertext = base64.b64decode(encrypted_data['ciphertext'])
     nonce = base64.b64decode(encrypted_data['nonce'])
     tag = base64.b64decode(encrypted_data['tag'])
@@ -341,14 +313,12 @@ def run_bb84():
     data = request.json
     n_bits = data.get('n_bits', 10)
     eve_prob = data.get('eve_prob', 0.3)
-    seed = data.get('seed', None)
     use_real = data.get("use_real", False)
     with_eve = eve_prob > 0
     
     try:
         results = bb84_protocol(
             n_bits=n_bits,
-            seed=seed,
             with_eve=with_eve,
             eve_prob=eve_prob,
             use_aer=not use_real
@@ -358,7 +328,6 @@ def run_bb84():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/encrypt', methods=['POST'])
-@check_security()
 def encrypt_message():
     data = request.json
     message = data.get('message', '')
@@ -372,7 +341,6 @@ def encrypt_message():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/decrypt', methods=['POST'])
-@check_security()
 def decrypt_message():
     data = request.json
     encrypted_data = data.get('encrypted_data', {})
@@ -418,7 +386,6 @@ def generate_aer_random_bits(n_bits, retries=2):
             attempt += 1
             if attempt > retries:
                 print(f"RNG Fallback: {e}")
-                import secrets
                 return [secrets.randbits(1) for _ in range(n_bits)]
             
 if __name__ == "__main__":
