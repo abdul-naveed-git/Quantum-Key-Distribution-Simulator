@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./styles.css";
-import "./ModeToggle.css";
 import SecureQuantumChat from "./SecureQuantumChat";
-import StatusBadges from "./StatusBadges";
 import StepTimeline from "./StepTimeline";
-import { useCursorPhotonPanel } from "./useCursorPhotonPanel";
-import { CursorPhotonPanel } from "./CursorPhotonPanel";
-import ModeToggle from "./ModeToggle";
-import { useThemeMode } from "./useThemeMode";
-import "./TableStyles.css";
 
 const BB84Simulator = () => {
-  // Theme mode management hook
-  const { mode, isLoaded, toggleMode, isQuantumMode } = useThemeMode();
   const [n, setN] = useState(10);
   const [eveProb, setEveProb] = useState(0.3);
   const [speed, setSpeed] = useState(150);
@@ -25,52 +16,27 @@ const BB84Simulator = () => {
   const [highlightedRow, setHighlightedRow] = useState(null);
   const [siftedKey, setSiftedKey] = useState([]);
   const [qber, setQBER] = useState(0);
+  const [useRealHardware, setUseRealHardware] = useState(false); // Add this line
   const [eveKey, setEveKey] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [message, setMessage] = useState("");
   const [encryptedData, setEncryptedData] = useState(null);
   const [decryptedMessage, setDecryptedMessage] = useState("");
-  const [tooltipData, setTooltipData] = useState(null);
-  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [securityWarning, setSecurityWarning] = useState("");
 
-  // Cursor-tracking photon panel hook
-  const { hoverInfo, handleMouseEnter, handleMouseMove, handleMouseLeave } =
-    useCursorPhotonPanel();
-
-  // Update QBER dynamically whenever tableData changes (frontend-only calculation)
+  // Toggle a body CSS class so the overall background can switch
+  // between dark (quantum) and white (simulator) modes.
   useEffect(() => {
-    const total = tableData.length;
-    const intercepted = tableData.filter(r => r["Eve Intercepting"] === "Yes").length;
-    const value = total === 0 ? 0 : Number(((intercepted / total) * 100).toFixed(2));
-    setQBER(value);
-  }, [tableData]);
-
-  // Tooltip logic & explanations (why bits differ / Eve details)
-  const handleRowHover = (e, row, index) => {
-    const aliceBit = row["Alice Bit"];
-    const bobBit = row["Bob Measured Bit"];
-    const eveIntercept = row["Eve Intercepting"] === "Yes";
-    const basesMatch = row["Match"] === "Yes";
-    const explanations = [];
-
-    if (basesMatch) {
-      if (aliceBit !== bobBit) {
-        if (eveIntercept) explanations.push("Although bases matched, the bits differ — Eve may have altered the photon state.");
-        else explanations.push("Bases matched but bits differ — likely due to channel noise or measurement error.");
-      } else explanations.push("Bases matched and bits agree — Bob measured the same bit as Alice.");
-    } else {
-      explanations.push("Bases differed — Bob measured in a different basis, which yields an uncorrelated (random) result.");
+    try {
+      if (!useRealHardware) {
+        document.body.classList.add("simulator-bg");
+      } else {
+        document.body.classList.remove("simulator-bg");
+      }
+    } catch (e) {
+      // server-side rendering or missing document - ignore
     }
-
-    if (eveIntercept) explanations.push(`Eve intercepted this photon and measured it (reported bit: ${row["Eve Bit"]}).`);
-    else explanations.push("Eve did not intercept this photon.");
-
-    if (basesMatch) explanations.push("This photon is kept during sifting because Alice and Bob used the same basis.");
-    else explanations.push("This photon is discarded during sifting because bases differed.");
-
-    setTooltipData({ index: index + 1, aliceBit, bobBit, eveIntercept, basesMatch, explanations });
-    setTooltipVisible(true);
-  };
+  }, [useRealHardware]);
 
   // QA Knowledge Base for chatbot
   const QA_KB = [
@@ -145,8 +111,6 @@ const BB84Simulator = () => {
 
     return { open, setOpen, input, setInput, messages, send };
   };
-
-
 
   // Chatbot component
   const ChatHelpBot = () => {
@@ -245,40 +209,71 @@ const BB84Simulator = () => {
     setSiftedKey([]);
     setQBER(0);
     setEveKey([]);
-    setTimeline("");
+    setSecurityWarning("");
+    setTimeline("Sending request to quantum backend...");
     setEncryptedData(null);
     setDecryptedMessage("");
     setMessage("");
+
     try {
-      const response = await fetch('http://localhost:5000/api/bb84', {
+      const response = await fetch('https://quantumnxtgen.pythonanywhere.com/api/bb84', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ n_bits: n, eve_prob: eveProb })
-      });
+        headers: {
+        'Content-Type': 'application/json',
+      },
+        body: JSON.stringify({
+        n_bits: n,
+        eve_prob: eveProb,
+        use_real: useRealHardware  // Add this parameter
+      })
+    });
+
       const data = await response.json();
-      
+
       if (data.error) {
         setTimeline(`Error: ${data.error}`);
         setIsRunning(false);
         return;
       }
 
-      // Animate and add rows to table
+      setTimeline("Quantum simulation complete. Animating...");
+
+      // Animate the table data
       for (let i = 0; i < data.table_data.length; i++) {
+        setTimeline(`📡 Displaying photon ${i + 1} of ${data.table_data.length}`);
+
+        // Check if Eve intercepted this photon
         const eveHere = data.table_data[i]["Eve Intercepting"] === "Yes";
         setEveActive(eveHere);
+
+        // Animate photon
         await animatePhoton(
-          data.table_data[i]["Alice Bit"], 
+          data.table_data[i]["Alice Bit"],
           data.table_data[i]["Alice Basis"].includes("+") ? 0 : 1,
           eveHere
         );
+
+        // Add row to table
         setTableData(prev => [...prev, data.table_data[i]]);
+      }
+
+      // Animate key sifting
+      setTimeline("🔍 Performing key sifting...");
+      for (let idx of data.matched_indices) {
+        setHighlightedRow(idx);
+        await new Promise((res) => setTimeout(res, 500));
+        setHighlightedRow(null);
+        await new Promise((res) => setTimeout(res, 200));
       }
 
       // Set final results
       setSiftedKey(data.bob_key);
+      setQBER(data.qber);
       setEveKey(data.eve_key);
-      
+
+      // Check for security warning
+
+      setTimeline("✅ Quantum simulation complete");
     } catch (error) {
       console.error('Error:', error);
       setTimeline("❌ Error connecting to quantum backend");
@@ -299,16 +294,23 @@ const BB84Simulator = () => {
     });
   };
 
-  // Encrypt message with quantum key
+  // Modify encryptMessage function to check QBER
   const encryptMessage = async () => {
+    if (qber > 0.2) {
+      setSecurityWarning("❌ Encryption blocked: QBER is too high (>20%). Potential eavesdropping detected.");
+      return;
+    }
+
     if (!message || siftedKey.length === 0) {
       setTimeline("Please generate a key and enter a message first");
       return;
     }
+
+    setSecurityWarning("");
     setTimeline("Encrypting message with quantum key...");
-    
+
     try {
-      const response = await fetch('http://localhost:5000/api/encrypt', {
+      const response = await fetch('https://quantumnxtgen.pythonanywhere.com/api/encrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +322,7 @@ const BB84Simulator = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.error) {
         setTimeline(`Encryption error: ${data.error}`);
         return;
@@ -334,16 +336,23 @@ const BB84Simulator = () => {
     }
   };
 
-  // Decrypt message with quantum key
+  // Modify decryptMessage function to check QBER
   const decryptMessage = async () => {
+    if (qber > 0.2) {
+      setSecurityWarning("❌ Decryption blocked: QBER is too high (>20%). Potential eavesdropping detected.");
+      return;
+    }
+
     if (!encryptedData || siftedKey.length === 0) {
       setTimeline("No encrypted data or key available");
       return;
     }
+
+    setSecurityWarning("");
     setTimeline("Decrypting message with quantum key...");
-    
+
     try {
-      const response = await fetch('http://localhost:5000/api/decrypt', {
+      const response = await fetch('https://quantumnxtgen.pythonanywhere.com/api/decrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -355,7 +364,7 @@ const BB84Simulator = () => {
       });
 
       const data = await response.json();
-      
+
       if (data.error) {
         setTimeline(`Decryption error: ${data.error}`);
         return;
@@ -370,60 +379,67 @@ const BB84Simulator = () => {
   };
 
   const BasisIndicator = ({ basis }) => (
-    <span style={{ 
+    <span style={{
       display: "inline-block",
-      padding: "4px 10px",
+      padding: "4px 12px",
       borderRadius: "6px",
-      background: basis === 0 ? "rgba(74,144,226,0.15)" : "rgba(255,193,7,0.15)",
+      background: basis === 0 ? "rgba(74, 144, 226, 0.2)" : "rgba(255, 193, 7, 0.2)",
       border: `2px solid ${basis === 0 ? "#4A90E2" : "#FFC107"}`,
       color: basis === 0 ? "#4A90E2" : "#FFC107",
       fontWeight: "bold",
-      fontSize: "1.1em",
-      minWidth: "30px",
-      textAlign: "center"
+      fontSize: "1.1em"
     }}>
       {basis === 0 ? "+" : "×"}
     </span>
   );
 
   const BitIndicator = ({ bit }) => (
-    <span className={`bit-indicator ${bit === 0 ? "zero" : "one"}`}>{bit}</span>
-  );
-
-  // Small presentational info tooltip (pure JSX + CSS)
-  // pass `corner` to place the icon absolutely in the top-right of its parent
-  const Info = ({ text, corner = false }) => (
-    <span className={"info-icon" + (corner ? " info-icon--corner" : "")} tabIndex="0" aria-label="Info">
-      ℹ️
-      <span className="tooltip-text">{text}</span>
+    <span className={`bit-indicator ${bit === 0 ? "zero" : "one"}`}>
+      {bit}
     </span>
   );
 
   return (
-    <div className="bb84-simulator quantum-simulator">
+    <div className="quantum-simulator">
       <ChatHelpBot />
-      {isLoaded && (
-        <ModeToggle
-          mode={mode}
-          isQuantumMode={isQuantumMode}
-          onToggle={toggleMode}
-        />
-      )}
-      
+      <div>
+        <div className="toggle-switch">
+          <input
+            type="checkbox"
+            id="hardware-toggle"
+            checked={useRealHardware}
+            onChange={(e) => setUseRealHardware(e.target.checked)}
+            disabled={isRunning}
+          />
+          <label htmlFor="hardware-toggle" className="toggle-slider">
+            <span className="toggle-on">{useRealHardware ? "🌐 Real Quantum" : "🖥️ Simulator"}</span>
+          </label>
+        </div>
+      </div>
+
       <div className="header">
         <h1>Quantum BB84 Simulator</h1>
         <p className="subtitle">Visualizing Quantum Key Distribution with the BB84 Protocol</p>
       </div>
 
+
+      {securityWarning && (
+        <div className="security-warning">
+          {securityWarning}
+        </div>
+      )}
+
       <div className="controls-container">
         <div className="controls">
           {[
-            { label: "Number of photons", value: n, min: 10, max: 50, step: 1, setter: setN },
-            { label: "Eve probability", value: eveProb, min: 0, max: 1, step: 0.1, setter: setEveProb, format: (v) => `${(v * 100).toFixed(0)}%`, tooltip: "Probability of an attacker intercepting qubits during transmission." },
-            { label: "Animation speed", value: speed, min: 10, max: 300, step: 10, setter: setSpeed, format: (v) => `${v}ms` },
+            { label: "Number of Particles", value: n, min: 10, max: 156, step: 1, setter: setN, tooltip: "Increase qubits for more reliable sifting. More data = better key." },
+            { label: "Eve probability", value: eveProb, min: 0, max: 1, step: 0.1, setter: setEveProb, format: (v) => `${(v * 100).toFixed(0)}%`, tooltip: "How often the eavesdropper intercepts. Higher values increase QBER." },
+            { label: "Animation speed", value: speed, min: 10, max: 300, step: 10, setter: setSpeed, format: (v) => `${v}ms`, tooltip: "Speed of photon animation across the quantum channel (visual only)." },
           ].map((ctrl) => (
-            <div key={ctrl.label} className="control-item">
-              <label>{ctrl.label} {ctrl.tooltip && <Info text={ctrl.tooltip} />}: {ctrl.format ? ctrl.format(ctrl.value) : ctrl.value}</label>
+            <div key={ctrl.label} className="control-item" data-tooltip={ctrl.tooltip}>
+              <label>{ctrl.label}: {ctrl.format ? ctrl.format(ctrl.value) : ctrl.value}</label>
+              <span className="info-icon">i</span>
+              <div className="info-tooltip">{ctrl.tooltip}</div>
               <input
                 type="range"
                 min={ctrl.min}
@@ -442,13 +458,14 @@ const BB84Simulator = () => {
             onClick={runSimulation}
             disabled={isRunning}
             className="simulate-button"
+            data-tooltip="Simulate BB84 quantum key distribution with the current settings"
           >
             {isRunning ? "⏳ Running Quantum Simulation..." : "▶️ Run Quantum Simulation"}
           </button>
         </div>
       </div>
 
-      <StepTimeline 
+      <StepTimeline
         isRunning={isRunning}
         tableData={tableData}
         siftedKey={siftedKey}
@@ -465,64 +482,56 @@ const BB84Simulator = () => {
             <div className="label">Alice</div>
             <div className="description">Sender</div>
             <div className="bit-display">
-              {photon ? (
-                <BitIndicator bit={photon.bit} />
-              ) : (
-                <span className="bit-indicator placeholder">—</span>
-              )}
-            </div>
-            <div className="basis-display">
-              Basis: {photon ? <BasisIndicator basis={photon.basis} /> : "—"}
+              {photon && <BitIndicator bit={photon.bit} />}
             </div>
           </div>
 
           <div className="communication-line">
-         
-
             <AnimatePresence>
               {photon && (
                 <motion.div
-                  key={`photon-${animationKey}`}
+                  key={animationKey}
+                  initial={{ left: "10%", opacity: 0, scale: 0.8 }}
+                  animate={{ left: "90%", opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ duration: speed / 1000, ease: "easeInOut" }}
                   className="photon"
-                  initial={{ x: 0, opacity: 0 }}
-                  animate={{ x: "calc(100% - 48px)", opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: (speed * 30) / 1000, ease: "linear" }}
+                  style={{ color: photon.color }}
                 >
-                  <span className="photon-symbol" style={{ color: photon.color }}>
-                    {photon.symbol}
-                  </span>
-                  <span className="photon-basis">{photon.basis === 0 ? "+" : "×"}</span>
-                  <span className="photon-bit">{photon.bit}</span>
-                  <span className="quantum-wave" />
+                  <div className="photon-symbol">{photon.symbol}</div>
+                  <div className="photon-basis">
+                    <BasisIndicator basis={photon.basis} />
+                  </div>
+                  <div className="photon-bit">
+                    <BitIndicator bit={photon.bit} />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
 
-          <div className={`party eve ${eveActive ? "active" : ""}`}>
-            <div className="label">Eve</div>
-            <div className="description">Eavesdropper</div>
-            <div className="bit-display">
-              {eveActive && photon ? (
-                <BitIndicator bit={photon.bit} />
-              ) : (
-                <span className="bit-indicator placeholder">—</span>
-              )}
-            </div>
+            {eveActive && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5, y: -20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.5, y: -20 }}
+                className="eve-indicator"
+              >
+                .
+              </motion.div>
+            )}
           </div>
 
           <div className="party bob">
             <div className="label">Bob</div>
             <div className="description">Receiver</div>
             <div className="bit-display">
-              {photon ? (
-                <span className="bit-indicator placeholder">?</span>
-              ) : (
-                <span className="bit-indicator placeholder">—</span>
-              )}
+              {photon && <BitIndicator bit={photon.bit} />}
             </div>
-            <div className="basis-display">Basis: Random</div>
+          </div>
+
+          <div className={`party eve ${eveActive ? 'active' : ''}`}>
+            <div className="label">Eve</div>
+            <div className="description">Eavesdropper</div>
           </div>
         </div>
       </div>
@@ -532,48 +541,30 @@ const BB84Simulator = () => {
           <table>
             <thead>
               <tr>
-                {["Alice Basis","Alice Bit", "Bob Basis", "Bob Measured Bit", "Eve Bit", "Eve Intercepting", "Match"].map((col) => (
+                {["Alice Bases","Alice Bits", "Bob Basis", "Bob Measured Bit", "Eve Bits ", "Eve Intercepting", "Bases Match"].map((col) => (
                   <th key={col}>{col}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {tableData.map((row, idx) => {
+                const aliceBit = row["Alice Bit"];
+                const bobBit = row["Bob Measured Bit"];
                 const eveIntercept = row["Eve Intercepting"] === "Yes";
                 const basesMatch = row["Match"] === "Yes";
-                
-                let rowClass = '';
-                if (highlightedRow === idx) rowClass = 'highlighted selected';
-                else if (eveIntercept && basesMatch) rowClass = 'eve-dark';
-                else if (eveIntercept && !basesMatch) rowClass = 'eve-light';
-                else if (!eveIntercept && basesMatch) rowClass = 'correct';
-                else rowClass = 'bases-differ';
 
-                // Map row data to expected format
-                const rowDataForPanel = {
-                  aliceBit: parseInt(row["Alice Bit"]),
-                  aliceBasis: row["Alice Basis"],
-                  bobBasis: row["Bob Basis"],
-                  bobMeasuredBit: parseInt(row["Bob Measured Bit"]),
-                  eveIntercepting: row["Eve Intercepting"] === "Yes",
-                  basesMatch: row["Match"] === "Yes",
-                };
+                let rowClass = "";
+                if (highlightedRow === idx) rowClass = "highlighted";
+                else if (eveIntercept) rowClass = "eve-present";
+                else if (!basesMatch) rowClass = "bases-differ";
+                else if (aliceBit !== bobBit) rowClass = "error";
+                else if (aliceBit === bobBit) rowClass = "correct";
 
                 return (
-                  <tr
-                    key={idx}
-                    className={rowClass}
-                    onMouseEnter={(e) => handleMouseEnter(e, idx, rowDataForPanel)}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <td><BasisIndicator basis={row["Alice Basis"].includes("+") ? 0 : 1} /></td>
-                    <td><BitIndicator bit={parseInt(row["Alice Bit"])} /></td>
-                    <td><BasisIndicator basis={row["Bob Basis"].includes("+") ? 0 : 1} /></td>
-                    <td><BitIndicator bit={parseInt(row["Bob Measured Bit"])} /></td>
-                    <td>{row["Eve Bit"] === "-" ? "-" : <BitIndicator bit={parseInt(row["Eve Bit"])} />}</td>
-                    <td>{row["Eve Intercepting"]}</td>
-                    <td>{row["Match"]}</td>
+                  <tr key={idx} className={rowClass}>
+                    {Object.values(row).map((val, i) => (
+                      <td key={i}>{val}</td>
+                    ))}
                   </tr>
                 );
               })}
@@ -582,13 +573,13 @@ const BB84Simulator = () => {
         </div>
       </div>
 
-      <CursorPhotonPanel hoverInfo={hoverInfo} />
-
       <div className="results">
         <h2>Quantum Results</h2>
-        
+
         <div className="result-cards">
-          <div className="result-card">
+          <div className="result-card" data-tooltip="Bits where both Alice and Bob used the same measurement basis (the secure key)">
+            <span className="info-icon">i</span>
+            <div className="info-tooltip">Bits where both Alice and Bob used the same measurement basis (the secure key)</div>
             <h3>Final Sifted Key</h3>
             <div className="key-display">
               {siftedKey.length > 0 ? siftedKey.map((bit, idx) => (
@@ -599,14 +590,18 @@ const BB84Simulator = () => {
             </div>
             <p>{siftedKey.length} bits</p>
           </div>
-          
-          <div className="result-card">
-            <h3>Quantum Bit Error Rate <Info text={"Quantum Bit Error Rate indicates disturbance in the quantum channel. High QBER suggests possible eavesdropping."} corner={true} /></h3>
-            <div className="qber-value">{qber}%</div>
-            <p>{qber > 20 ? "High error rate - Eve might be present!" : "Low error rate - channel is secure"}</p>
-          </div>
-          
-          <div className="result-card">
+
+          <div className="result-card" data-tooltip="Error rate due to eavesdropping or noise. >20% suggests security threat.">
+  <span className="info-icon">i</span>
+  <div className="info-tooltip">Error rate due to eavesdropping or noise. >20% suggests security threat.</div>
+  <h3>Quantum Bit Error Rate</h3>
+  <div className="qber-value">{(qber * 100).toFixed(2)}%</div>
+  <p>{qber > 0.2 ? "High error rate - Eve might be present!" : "Low error rate - channel is secure"}</p>
+</div>
+
+          <div className="result-card" data-tooltip="Bits the eavesdropper managed to intercept and measure (if Eve was active)">
+            <span className="info-icon">i</span>
+            <div className="info-tooltip">Bits the eavesdropper managed to intercept and measure (if Eve was active)</div>
             <h3>Eve's Intercepted Key</h3>
             <div className="key-display">
               {eveKey.length > 0 ? eveKey.map((bit, idx) => (
@@ -621,40 +616,47 @@ const BB84Simulator = () => {
       </div>
 
       <div className="encryption-section">
-        <h2>AES Encryption <Info text={"Quantum-generated symmetric key used for secure AES encryption."} corner={true} /></h2>
-        
+        <h2>AES Encryption {qber > 0.2 && "(Disabled - High QBER)"}</h2>
+
         <div className="encryption-controls">
           <div className="input-group">
-            <label>Message to encrypt:</label>
+            <label data-tooltip="Type a message to encrypt using your quantum key">Message to encrypt:</label>
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Enter secret message"
+              disabled={qber > 0.2}
             />
           </div>
-          
-          <button 
-            onClick={encryptMessage} 
-            disabled={siftedKey.length === 0}
+
+          <button
+            onClick={encryptMessage}
+            disabled={siftedKey.length === 0 || qber > 0.2}
+            data-tooltip="Encrypt your message using AES-128 with the sifted quantum key as the encryption key"
           >
-            Encrypt with Quantum Key
+            <div className="info-tooltip">Encrypt your message using AES-128 with the sifted quantum key as the encryption key</div>
+            {qber > 0.2 ? "Encryption Disabled" : "Encrypt with Quantum Key"}
           </button>
-          
+
           {encryptedData && (
             <div className="encrypted-data">
               <h4>Encrypted Message:</h4>
               <div className="ciphertext">{encryptedData.ciphertext}</div>
-              
-              <button 
-                onClick={decryptMessage} 
+
+              <button
+                onClick={decryptMessage}
                 style={{ marginTop: '15px' }}
+                disabled={qber > 0.2}
+                data-tooltip="Decrypt the encrypted message using the same quantum key"
               >
-                Decrypt with Quantum Key
+                <span className="info-icon">i</span>
+                <div className="info-tooltip">Decrypt the encrypted message using the same quantum key</div>
+                {qber > 0.2 ? "Decryption Disabled" : "Decrypt with Quantum Key"}
               </button>
             </div>
           )}
-          
+
           {decryptedMessage && (
             <div className="decrypted-data">
               <h4>Decrypted Message:</h4>
@@ -663,11 +665,6 @@ const BB84Simulator = () => {
           )}
         </div>
       </div>
-
-      <StatusBadges 
-        qber={qber}
-        siftedKey={siftedKey}
-      />
 
       <SecureQuantumChat 
         siftedKey={siftedKey}
@@ -697,7 +694,7 @@ const BB84Simulator = () => {
           </div>
           <div className="legend-item">
             <div className="color-swatch highlighted"></div>
-            <span>Selected for key <Info text={"Bits retained after sifting and error correction to form the final key."} /></span>
+            <span>Selected for key</span>
           </div>
         </div>
       </div>
@@ -708,5 +705,4 @@ const BB84Simulator = () => {
     </div>
   );
 };
-
 export default BB84Simulator;
