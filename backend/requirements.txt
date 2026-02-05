@@ -5,4 +5,4 @@ qiskit-aer
 numpy
 pycryptodome
 gunicorn
-
+qiskit_ibm_runtime 
