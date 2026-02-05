@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./styles.css";
+import "./ModeToggle.css";
 import SecureQuantumChat from "./SecureQuantumChat";
 import StatusBadges from "./StatusBadges";
 import StepTimeline from "./StepTimeline";
 import { useCursorPhotonPanel } from "./useCursorPhotonPanel";
 import { CursorPhotonPanel } from "./CursorPhotonPanel";
+import ModeToggle from "./ModeToggle";
+import { useThemeMode } from "./useThemeMode";
 import "./TableStyles.css";
 
 const BB84Simulator = () => {
+  // Theme mode management hook
+  const { mode, isLoaded, toggleMode, isQuantumMode } = useThemeMode();
   const [n, setN] = useState(10);
   const [eveProb, setEveProb] = useState(0.3);
   const [speed, setSpeed] = useState(150);
@@ -25,7 +30,6 @@ const BB84Simulator = () => {
   const [message, setMessage] = useState("");
   const [encryptedData, setEncryptedData] = useState(null);
   const [decryptedMessage, setDecryptedMessage] = useState("");
-  const [securityWarning, setSecurityWarning] = useState("");
   const [tooltipData, setTooltipData] = useState(null);
   const [tooltipVisible, setTooltipVisible] = useState(false);
 
@@ -241,7 +245,6 @@ const BB84Simulator = () => {
     setSiftedKey([]);
     setQBER(0);
     setEveKey([]);
-    setSecurityWarning("");
     setTimeline("");
     setEncryptedData(null);
     setDecryptedMessage("");
@@ -296,19 +299,12 @@ const BB84Simulator = () => {
     });
   };
 
-  // Modify encryptMessage function to check QBER
+  // Encrypt message with quantum key
   const encryptMessage = async () => {
-    if (parseFloat(qber) > 20) {
-      setSecurityWarning("❌ Encryption blocked: QBER is too high (>20%). Potential eavesdropping detected.");
-      return;
-    }
-    
     if (!message || siftedKey.length === 0) {
       setTimeline("Please generate a key and enter a message first");
       return;
     }
-
-    setSecurityWarning("");
     setTimeline("Encrypting message with quantum key...");
     
     try {
@@ -338,19 +334,12 @@ const BB84Simulator = () => {
     }
   };
 
-  // Modify decryptMessage function to check QBER
+  // Decrypt message with quantum key
   const decryptMessage = async () => {
-    if (parseFloat(qber) > 20) {
-      setSecurityWarning("❌ Decryption blocked: QBER is too high (>20%). Potential eavesdropping detected.");
-      return;
-    }
-    
     if (!encryptedData || siftedKey.length === 0) {
       setTimeline("No encrypted data or key available");
       return;
     }
-
-    setSecurityWarning("");
     setTimeline("Decrypting message with quantum key...");
     
     try {
@@ -411,19 +400,20 @@ const BB84Simulator = () => {
   );
 
   return (
-    <div className="quantum-simulator">
+    <div className="bb84-simulator quantum-simulator">
       <ChatHelpBot />
+      {isLoaded && (
+        <ModeToggle
+          mode={mode}
+          isQuantumMode={isQuantumMode}
+          onToggle={toggleMode}
+        />
+      )}
       
       <div className="header">
         <h1>Quantum BB84 Simulator</h1>
         <p className="subtitle">Visualizing Quantum Key Distribution with the BB84 Protocol</p>
       </div>
-
-      {securityWarning && (
-        <div className="security-warning">
-          {securityWarning}
-        </div>
-      )}
 
       <div className="controls-container">
         <div className="controls">
@@ -468,6 +458,87 @@ const BB84Simulator = () => {
       />
 
       <div className="timeline">{timeline}</div>
+
+      <div className="quantum-channel-container">
+        <div className="quantum-channel">
+          <div className="party alice">
+            <div className="label">Alice</div>
+            <div className="description">Sender</div>
+            <div className="bit-display">
+              {photon ? (
+                <BitIndicator bit={photon.bit} />
+              ) : (
+                <span className="bit-indicator placeholder">—</span>
+              )}
+            </div>
+            <div className="basis-display">
+              Basis: {photon ? <BasisIndicator basis={photon.basis} /> : "—"}
+            </div>
+          </div>
+
+          <div className="communication-line">
+            <AnimatePresence>
+              {eveActive && (
+                <motion.div
+                  key="eve-indicator"
+                  className="eve-indicator"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  Eve intercepting
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {photon && (
+                <motion.div
+                  key={`photon-${animationKey}`}
+                  className="photon"
+                  initial={{ x: 0, opacity: 0 }}
+                  animate={{ x: "calc(100% - 48px)", opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: (speed * 30) / 1000, ease: "linear" }}
+                >
+                  <span className="photon-symbol" style={{ color: photon.color }}>
+                    {photon.symbol}
+                  </span>
+                  <span className="photon-basis">{photon.basis === 0 ? "+" : "×"}</span>
+                  <span className="photon-bit">{photon.bit}</span>
+                  <span className="quantum-wave" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className={`party eve ${eveActive ? "active" : ""}`}>
+            <div className="label">Eve</div>
+            <div className="description">Eavesdropper</div>
+            <div className="bit-display">
+              {eveActive && photon ? (
+                <BitIndicator bit={photon.bit} />
+              ) : (
+                <span className="bit-indicator placeholder">—</span>
+              )}
+            </div>
+          </div>
+
+          <div className="party bob">
+            <div className="label">Bob</div>
+            <div className="description">Receiver</div>
+            <div className="bit-display">
+              {photon ? (
+                <span className="bit-indicator placeholder">?</span>
+              ) : (
+                <span className="bit-indicator placeholder">—</span>
+              )}
+            </div>
+            <div className="basis-display">Basis: Random</div>
+          </div>
+        </div>
+      </div>
 
       <div className="results-table">
         <div className="table-wrapper">
@@ -563,7 +634,7 @@ const BB84Simulator = () => {
       </div>
 
       <div className="encryption-section">
-        <h2>AES Encryption <Info text={"Quantum-generated symmetric key used for secure AES encryption."} corner={true} /> {parseFloat(qber) > 20 && "(Disabled - High QBER)"}</h2>
+        <h2>AES Encryption <Info text={"Quantum-generated symmetric key used for secure AES encryption."} corner={true} /></h2>
         
         <div className="encryption-controls">
           <div className="input-group">
@@ -573,15 +644,14 @@ const BB84Simulator = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Enter secret message"
-              disabled={parseFloat(qber) > 20}
             />
           </div>
           
           <button 
             onClick={encryptMessage} 
-            disabled={siftedKey.length === 0 || parseFloat(qber) > 20}
+            disabled={siftedKey.length === 0}
           >
-            {parseFloat(qber) > 20 ? "Encryption Disabled" : "Encrypt with Quantum Key"}
+            Encrypt with Quantum Key
           </button>
           
           {encryptedData && (
@@ -592,9 +662,8 @@ const BB84Simulator = () => {
               <button 
                 onClick={decryptMessage} 
                 style={{ marginTop: '15px' }}
-                disabled={parseFloat(qber) > 20}
               >
-                {parseFloat(qber) >20 ? "Decryption Disabled" : "Decrypt with Quantum Key"}
+                Decrypt with Quantum Key
               </button>
             </div>
           )}
