@@ -140,85 +140,60 @@ def bb84_protocol(n_bits=10, with_eve=False, eve_prob=0.0, use_aer=True):
         eve_results, effective_bits, effective_bases = eavesdrop_simulation(
             alice_bits, alice_bases, eve_bases, eve_prob
         )
-
-    # 3. BUILD ONE PARALLEL CIRCUIT
-    # Instead of list of N circuits, we make 1 circuit with N qubits
-    qc = QuantumCircuit(n_bits, n_bits)
-
-    for i in range(n_bits):
-        # A. Alice (or Eve's resent state) prepares qubit i
-        bit = effective_bits[i]
-        basis = effective_bases[i]
-
-        if basis == 0:  # Z basis
-            if bit == 1:
-                qc.x(i)
-        else:  # X basis
-            if bit == 0:
-                qc.h(i)
-            else:
-                qc.x(i)
-                qc.h(i)
-
-        # B. Bob measures qubit i
-        b_basis = bob_bases[i]
-        if b_basis == 1: # X basis measurement
-            qc.h(i)
-        
-        qc.measure(i, i)
-
-    # 4. EXECUTION
     backend = get_backend(use_real=not use_aer, min_qubits=n_bits)
     bob_results = []
-
-    if IBM_AVAILABLE and not use_aer:
-        print(f"🚀 Running PARALLEL Job on: {backend.name}")
-        
-        # A. Transpile ONE circuit
-        isa_circuit = transpile(qc, backend=backend, optimization_level=1)
-        
-        # B. Run ONE job
-        sampler = Sampler(mode=backend)
-        job = sampler.run([isa_circuit]) # Send list containing 1 circuit
-        print(f"Job ID: {job.job_id()}")
-        
-        # C. Get Result
-        try:
-            result = job.result()
-            # Get counts from the first (and only) pub result
-            pub_result = result[0]
-            # Handle different register names (c vs meas)
-            if hasattr(pub_result.data, 'c'):
-                counts = pub_result.data.c.get_counts()
-            else:
-                first_key = next(iter(pub_result.data))
-                counts = getattr(pub_result.data, first_key).get_counts()
+    # 3. BUILD ONE PARALLEL CIRCUIT
+    # Instead of list of N circuits, we make 1 circuit with N qubits
+    #qc = QuantumCircuit(n_bits, n_bits)
+    if use_aer:
+        # --- PATH A: LIST OF CIRCUITS FOR SIMULATOR ---
+        circuits = []
+        for i in range(n_bits):
+            qc = QuantumCircuit(1, 1)
+            # Prepare
+            if effective_bases[i] == 1: # X basis
+                if effective_bits[i] == 0: qc.h(0)
+                else: qc.x(0); qc.h(0)
+            else: # Z basis
+                if effective_bits[i] == 1: qc.x(0)
             
-            # Counts key is a bitstring "10010...", we need to parse it
-            # Qiskit bitstrings are little-endian (qubit 0 is rightmost)
-            measured_string = max(counts, key=counts.get) # Get most probable bitstring
-            
-            # Reverse to match array index (index 0 -> left)
-            measured_string = measured_string[::-1]
-            
-            # If backend returned fewer bits (rare), pad it
-            if len(measured_string) < n_bits:
-                measured_string = measured_string.ljust(n_bits, '0')
-
-            bob_results = [int(bit) for bit in measured_string[:n_bits]]
-
-        except Exception as e:
-            print(f"Error parsing results: {e}")
-            # Fallback to zeros if parse fails
-            bob_results = [0] * n_bits
-    else:
-        # Simulator run
-        job = backend.run(transpile(qc, backend), shots=1)
+            # Bob measure
+            if bob_bases[i] == 1: qc.h(0)
+            qc.measure(0, 0)
+            circuits.append(qc)
+        # Execute list on Aer
+        job = backend.run(transpile(circuits, backend), shots=1)
         result = job.result()
-        counts = result.get_counts()
-        measured_string = list(counts.keys())[0] # "010101"
-        measured_string = measured_string[::-1] # Reverse for index matching
-        bob_results = [int(bit) for bit in measured_string[:n_bits]]
+        for i in range(n_bits):
+            counts = result.get_counts(i)
+            bob_results.append(int(list(counts.keys())[0]))
+    else:
+        # --- PATH B: PARALLEL CIRCUIT FOR REAL IBM HARDWARE ---
+        qc = QuantumCircuit(n_bits, n_bits)
+        for i in range(n_bits):
+            if effective_bases[i] == 1:
+                if effective_bits[i] == 0: qc.h(i)
+                else: qc.x(i); qc.h(i)
+            else:
+                if effective_bits[i] == 1: qc.x(i)
+            
+            if bob_bases[i] == 1: qc.h(i)
+            qc.measure(i, i)
+
+        if IBM_AVAILABLE:
+            isa_circuit = transpile(qc, backend=backend, optimization_level=1)
+            sampler = Sampler(mode=backend)
+            job = sampler.run([isa_circuit])
+            print(f"🚀 IBM Job ID: {job.job_id()}")
+            
+            res = job.result()[0]
+            # Dynamic key detection for IBM results
+            data_key = 'c' if hasattr(res.data, 'c') else next(iter(res.data))
+            counts = getattr(res.data, data_key).get_counts()
+            
+            measured_string = max(counts, key=counts.get)[::-1]
+            measured_string = measured_string.ljust(n_bits, '0')
+            bob_results = [int(bit) for bit in measured_string[:n_bits]]
 
     # 5. Sifting and QBER
     alice_key = []
