@@ -282,17 +282,6 @@ python app.py
 
 ---
 
-## 📞 Support Resources
-
-| Topic | File |
-|-------|------|
-| Component API | TECHNICAL_REFERENCE.md |
-| Visual Design | UI_VISUAL_GUIDE.md |
-| Full Overview | ENHANCEMENT_SUMMARY.md |
-| Quick Answers | README (this file) |
-
----
-
 ## 🎓 Key Learnings Demonstrated
 
 ### Quantum Computing
