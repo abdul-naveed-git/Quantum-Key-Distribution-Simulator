@@ -1,8 +1,208 @@
-# Quantum Key Distribution (QKD) Simulator
-The Quantum Key Distribution (QKD) Simulator is a software-based project designed to simulate secure key exchange using fundamental principles of quantum mechanics. This project demonstrates how two parties can securely generate and share cryptographic keys while detecting the presence of any eavesdropper.
+# 🔐 Quantum Key Distribution (QKD) Simulator
 
-The simulator models the complete QKD workflow, including quantum state preparation, transmission, measurement, basis reconciliation, key sifting, and error detection. It simulates well-known QKD protocols such as BB84, showcasing how quantum properties like superposition and the no-cloning theorem ensure communication security.
+![Quantum Banner](https://img.shields.io/badge/Quantum-Cryptography-blueviolet?style=for-the-badge)
+![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge\&logo=react)
+![Flask](https://img.shields.io/badge/Backend-Flask-000000?style=for-the-badge\&logo=flask)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-The system also introduces an eavesdropper simulation, where interception attempts result in detectable errors in the key, emphasizing the inherent security advantages of quantum communication over classical methods.
+A modern simulation platform that demonstrates how **Quantum Key Distribution (QKD)** enables secure communication using the principles of quantum mechanics.
 
-This project serves as an educational and experimental tool to understand the working of quantum cryptography without requiring real quantum hardware. It highlights the future potential of quantum-secure communication systems in protecting sensitive data.
+This project visually explains how two users can exchange secret cryptographic keys securely while detecting any eavesdropping attempts.
+
+---
+
+# 📸 Project Preview
+
+## 🖥️ QKD Simulation Interface
+
+![QKD Simulator UI](https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80\&w=1200\&auto=format\&fit=crop)
+
+## 🔑 Quantum Encryption Concept
+
+![Quantum Encryption](https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80\&w=1200\&auto=format\&fit=crop)
+
+## 🌐 Secure Communication Visualization
+
+![Secure Communication](https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80\&w=1200\&auto=format\&fit=crop)
+
+---
+
+# 🚀 Features
+
+* 🔐 Simulates Quantum Key Distribution workflow
+* 👨‍💻 Interactive frontend built using React
+* ⚡ Backend powered by Flask
+* 🧠 Demonstrates BB84 protocol concepts
+* 🛰️ Simulates secure quantum communication
+* 🚨 Detects eavesdropping attempts
+* 📊 Visual representation of quantum states
+* 🎯 Educational and beginner-friendly interface
+
+---
+
+# 🧩 Tech Stack
+
+| Technology | Usage                    |
+| ---------- | ------------------------ |
+| React.js   | Frontend UI              |
+| Flask      | Backend API              |
+| CSS3       | Styling                  |
+| JavaScript | Application Logic        |
+| Python     | Quantum Simulation Logic |
+
+---
+
+# 📂 Project Structure
+
+```bash
+Quantum-Key-Distribution-Simulator/
+│
+├── backend/
+│   ├── app.py
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── public/
+│   └── src/
+│       ├── App.js
+│       ├── SecureQuantumChat.js
+│       ├── StepTimeline.js
+│       ├── styles.css
+│       └── config.js
+│
+├── README.md
+└── README_ENHANCEMENT.md
+```
+
+---
+
+# ⚙️ Installation & Setup
+
+## 1️⃣ Clone the Repository
+
+```bash
+git clone https://github.com/your-username/Quantum-Key-Distribution-Simulator.git
+cd Quantum-Key-Distribution-Simulator
+```
+
+---
+
+## 2️⃣ Backend Setup
+
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+
+Backend runs on:
+
+```bash
+http://localhost:5000
+```
+
+---
+
+## 3️⃣ Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Frontend runs on:
+
+```bash
+http://localhost:3000
+```
+
+---
+
+# 🔄 How Quantum Key Distribution Works
+
+```text
+Alice Generates Qubits
+          ↓
+Random Quantum Bases Selected
+          ↓
+Qubits Sent Through Quantum Channel
+          ↓
+Bob Measures Incoming Qubits
+          ↓
+Basis Reconciliation
+          ↓
+Shared Secret Key Generated
+          ↓
+Eavesdropping Detection
+```
+
+---
+
+# 🧠 BB84 Protocol Overview
+
+The simulator demonstrates the famous **BB84 Quantum Cryptography Protocol**, where:
+
+* Alice sends randomly polarized qubits.
+* Bob randomly chooses measurement bases.
+* Matching bases form the secret key.
+* Any interception introduces detectable errors.
+
+This showcases how quantum mechanics provides security that classical encryption cannot guarantee.
+
+---
+
+# 🎯 Use Cases
+
+* 📚 Learning Quantum Cryptography
+* 🎓 Academic Demonstrations
+* 🔬 Research Prototypes
+* 🧠 Understanding Secure Communication
+* 💻 Educational Simulation Projects
+
+---
+
+# 🌟 Future Enhancements
+
+* Add real-time quantum visualizations
+* Multi-user secure communication
+* Advanced quantum protocols
+* Quantum noise simulation
+* Improved analytics dashboard
+* Dark mode support
+
+---
+
+# 🤝 Contribution
+
+Contributions are welcome.
+
+```bash
+Fork the repository
+Create a feature branch
+Commit your changes
+Push to your branch
+Open a Pull Request
+```
+
+---
+
+# 📜 License
+
+This project is intended for educational and research purposes.
+
+---
+
+# 👨‍💻 Author
+
+Developed as a Quantum Cryptography simulation project to explore secure communication using the principles of quantum mechanics.
+
+---
+
+# ⭐ Support
+
+If you found this project useful:
+
+⭐ Star the repository
+🍴 Fork the project
+📢 Share with others
