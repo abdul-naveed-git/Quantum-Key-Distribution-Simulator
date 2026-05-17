@@ -22,6 +22,7 @@ This project visually explains how two users can exchange secret cryptographic k
 ![Quantum Encryption](https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80\&w=1200\&auto=format\&fit=crop)
 
 ## 🌐 Secure Communication Visualization
+<img width="1566" height="356" alt="Screenshot 2026-02-04 183210" src="https://github.com/user-attachments/assets/af8df6ea-96c8-4f95-816f-efaaff481708" />
 
 ![Secure Communication](https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80\&w=1200\&auto=format\&fit=crop)
 
