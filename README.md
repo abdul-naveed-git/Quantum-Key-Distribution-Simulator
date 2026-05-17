@@ -18,13 +18,10 @@ This project visually explains how two users can exchange secret cryptographic k
 ![QKD Simulator UI](https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80\&w=1200\&auto=format\&fit=crop)
 
 ## 🔑 Quantum Encryption Concept
-
-![Quantum Encryption](https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80\&w=1200\&auto=format\&fit=crop)
+<img width="998" height="835" alt="Screenshot 2026-05-17 214848" src="https://github.com/user-attachments/assets/e3d24155-9b17-43b1-b141-6ae0e39ae49a" />
 
 ## 🌐 Secure Communication Visualization
-<img width="1566" height="356" alt="Screenshot 2026-02-04 183210" src="https://github.com/user-attachments/assets/af8df6ea-96c8-4f95-816f-efaaff481708" />
-
-![Secure Communication](https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80\&w=1200\&auto=format\&fit=crop)
+<img width="945" height="888" alt="Screenshot 2026-05-17 214808" src="https://github.com/user-attachments/assets/bcf618df-7f74-49ea-b58b-891041d6d003" />
 
 ---
 
