@@ -12,11 +12,6 @@ This project visually explains how two users can exchange secret cryptographic k
 ---
 
 # 📸 Project Preview
-
-## 🖥️ QKD Simulation Interface
-
-![QKD Simulator UI](https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80\&w=1200\&auto=format\&fit=crop)
-
 ## 🔑 Quantum Encryption Concept
 <img width="998" height="835" alt="Screenshot 2026-05-17 214848" src="https://github.com/user-attachments/assets/e3d24155-9b17-43b1-b141-6ae0e39ae49a" />
 
